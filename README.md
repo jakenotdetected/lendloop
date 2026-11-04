@@ -143,10 +143,10 @@ Open http://localhost:3000 and sign in. To make yourself an admin after your fir
 npx convex run admin:setRole '{"email":"you@example.com","role":"admin"}'
 ```
 
-To fill the board with example neighbours and tools (safe to run more than once):
+To fill the board with example neighbours and tools, pass the origin the app is served from so their photos can be attached. Running it again replaces the example data and leaves real users' data alone.
 
 ```bash
-npx convex run demo:seed
+npx convex run demo:seed '{"origin":"http://localhost:3000"}'
 ```
 
 ## n8n workflows (`n8n/workflows/`)

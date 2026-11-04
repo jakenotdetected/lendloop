@@ -13,8 +13,8 @@ export default function Credits() {
         <section className="stack">
           <h1 className="page-title">Photo credits</h1>
           <p className="muted">
-            Category photos come from Wikimedia Commons and are used under the licences shown. They illustrate the kind
-            of tool, not the exact item a neighbour is lending.
+            Category and example listing photos come from Wikimedia Commons and are used under the licences shown.
+            Category photos illustrate the kind of tool, not the exact item a neighbour is lending.
           </p>
         </section>
         <ul className="credits">
