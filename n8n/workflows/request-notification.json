@@ -1,0 +1,278 @@
+{
+  "id": "LendLoopNotify01",
+  "name": "LendLoop – Request notification",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "LendLoopErrors01",
+    "saveManualExecutions": true
+  },
+  "nodes": [
+    {
+      "id": "LendLoopNotify01-01",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Convex event webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "6f2b8a51-1c4e-4f7a-9a43-5d1e2c7b9f10"
+    },
+    {
+      "id": "LendLoopNotify01-02",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.LENDLOOP_WEBHOOK_SECRET;\nif (!secret) throw new Error('LENDLOOP_WEBHOOK_SECRET is not set');\n\nconst item = $input.first().json;\nconst header = String(item.headers['x-lendloop-signature'] || '');\nconst parts = Object.fromEntries(header.split(',').map((p) => {\n  const i = p.indexOf('=');\n  return [p.slice(0, i).trim(), p.slice(i + 1).trim()];\n}));\nconst t = Number(parts.t);\nconst now = Math.floor(Date.now() / 1000);\nconst raw = JSON.stringify(item.body);\n\nlet valid = Number.isInteger(t) && Math.abs(now - t) <= 300 && typeof parts.v1 === 'string';\nif (valid) {\n  const expected = crypto.createHmac('sha256', secret).update(t + '.' + raw).digest('hex');\n  valid = expected.length === parts.v1.length &&\n    crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1));\n}\nif (!valid) return [{ json: { valid: false } }];\n\nconst e = item.body;\nreturn [{\n  json: {\n    valid: true,\n    eventId: e.eventId,\n    type: e.type,\n    recipientEmail: e.recipient && e.recipient.email,\n    recipientFirstName: (e.recipient && e.recipient.firstName) || 'there',\n    toolName: e.toolName,\n    startDate: e.startDate,\n    endDate: e.endDate,\n  },\n}];"
+      },
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "id": "LendLoopNotify01-03",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "a1f0c1d2-0000-4000-8000-000000000001",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Signature valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "id": "LendLoopNotify01-04",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"accepted\": true, \"eventId\": $json.eventId } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "name": "Acknowledge (202)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        200
+      ]
+    },
+    {
+      "id": "LendLoopNotify01-05",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"invalid signature\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "name": "Reject (401)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        420
+      ]
+    },
+    {
+      "id": "LendLoopNotify01-06",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const copy = {\n  request_created: (e) => ['New request for your ' + e.toolName, 'Hi ' + e.recipientFirstName + ', a neighbour would like to borrow your ' + e.toolName + ' from ' + e.startDate + ' to ' + e.endDate + '. Open LendLoop to approve or decline.'],\n  request_approved: (e) => ['Your request was approved', 'Hi ' + e.recipientFirstName + ', your request to borrow the ' + e.toolName + ' (' + e.startDate + ' to ' + e.endDate + ') was approved.'],\n  request_declined: (e) => ['Your request was declined', 'Hi ' + e.recipientFirstName + ', your request to borrow the ' + e.toolName + ' was declined this time.'],\n  request_cancelled: (e) => ['A request was cancelled', 'Hi ' + e.recipientFirstName + ', the request for the ' + e.toolName + ' (' + e.startDate + ' to ' + e.endDate + ') was cancelled.'],\n  loan_returned: (e) => ['Loan marked returned', 'Hi ' + e.recipientFirstName + ', the ' + e.toolName + ' has been marked as returned. Thanks for using LendLoop!'],\n};\nreturn $input.all().map(({ json: e }) => {\n  const build = copy[e.type];\n  if (!build) throw new Error('Unknown event type: ' + e.type);\n  const [subject, text] = build(e);\n  return { json: { eventId: e.eventId, to: e.recipientEmail, subject, text } };\n});"
+      },
+      "name": "Compose message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        200
+      ]
+    },
+    {
+      "id": "LendLoopNotify01-07",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return $input.all().map(({ json: m }) => {\n  if (!m.to) throw new Error('Notification has no recipient');\n  console.log('[LendLoop] notify ' + m.to + ' | ' + m.subject + ' | ' + m.text);\n  return { json: { eventId: m.eventId, status: 'sent', channel: 'mock-log' } };\n});"
+      },
+      "name": "Send notification (mock)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "LendLoopNotify01-08",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const crypto = require('crypto');\nfunction sign(body) {\n  const secret = $env.LENDLOOP_CALLBACK_SECRET;\n  if (!secret) throw new Error('LENDLOOP_CALLBACK_SECRET is not set');\n  const t = Math.floor(Date.now() / 1000);\n  const v1 = crypto.createHmac('sha256', secret).update(t + '.' + body).digest('hex');\n  return 't=' + t + ',v1=' + v1;\n}\nreturn $input.all().map(({ json: r }) => {\n  const body = JSON.stringify({ eventId: r.eventId, status: r.status, message: 'Delivered via ' + r.channel });\n  return { json: { body, signature: sign(body) } };\n});"
+      },
+      "name": "Sign write-back",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        200
+      ]
+    },
+    {
+      "id": "LendLoopNotify01-09",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LENDLOOP_CONVEX_SITE_URL }}/n8n/notification-result",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.signature }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Record delivery in Convex",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Convex event webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Signature valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature valid?": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge (202)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject (401)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge (202)": {
+      "main": [
+        [
+          {
+            "node": "Compose message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose message": {
+      "main": [
+        [
+          {
+            "node": "Send notification (mock)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send notification (mock)": {
+      "main": [
+        [
+          {
+            "node": "Sign write-back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign write-back": {
+      "main": [
+        [
+          {
+            "node": "Record delivery in Convex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

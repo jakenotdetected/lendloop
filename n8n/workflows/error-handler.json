@@ -1,0 +1,96 @@
+{
+  "id": "LendLoopErrors01",
+  "name": "LendLoop – Error handler",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "LendLoopErrors01-01",
+      "parameters": {},
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "id": "LendLoopErrors01-02",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const crypto = require('crypto');\nfunction sign(body) {\n  const secret = $env.LENDLOOP_CALLBACK_SECRET;\n  if (!secret) throw new Error('LENDLOOP_CALLBACK_SECRET is not set');\n  const t = Math.floor(Date.now() / 1000);\n  const v1 = crypto.createHmac('sha256', secret).update(t + '.' + body).digest('hex');\n  return 't=' + t + ',v1=' + v1;\n}\nconst e = $input.first().json;\nconst workflow = (e.workflow && e.workflow.name) || 'unknown workflow';\nconst executionId = String((e.execution && e.execution.id) || ('trigger-' + Date.now()));\nconst error = (e.execution && e.execution.error) || (e.trigger && e.trigger.error) || {};\nconst node = e.execution && e.execution.lastNodeExecuted ? ' at \"' + e.execution.lastNodeExecuted + '\"' : '';\nconst message = ('Failed' + node + ': ' + (error.message || 'unknown error')).slice(0, 1900);\nconsole.error('[LendLoop] ' + workflow + ' ' + executionId + ' ' + message);\nconst body = JSON.stringify({ workflow, executionId, message });\nreturn [{ json: { body, signature: sign(body) } }];"
+      },
+      "name": "Sign error report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "id": "LendLoopErrors01-03",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LENDLOOP_CONVEX_SITE_URL }}/n8n/workflow-error",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lendloop-signature",
+              "value": "={{ $json.signature }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Report error to Convex",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Sign error report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign error report": {
+      "main": [
+        [
+          {
+            "node": "Report error to Convex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
