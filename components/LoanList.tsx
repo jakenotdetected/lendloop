@@ -9,6 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { dateParts, errorMessage, timeAgo } from "@/lib/format";
 import { Activity } from "./Activity";
 import { Stamp } from "./Tag";
+import { TrustedBadge } from "./TrustedBadge";
 
 type Loan = FunctionReturnType<typeof api.loans.myRequests>[number];
 
@@ -60,7 +61,7 @@ export function MyRequests() {
         <>
           <UserRound size={16} aria-hidden />
           Lent by {loan.counterpartFirstName}
-          {loan.counterpartTrusted && <span className="badge badge-trusted badge-small">Trusted</span>}
+          {loan.counterpartTrusted && <TrustedBadge />}
         </>
       )}
       actions={(loan, run) =>

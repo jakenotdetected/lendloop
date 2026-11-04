@@ -1064,15 +1064,16 @@ a {
   color: var(--moss);
 }
 
-.badge-trusted::before {
-  content: "âœ“";
-}
-
 .badge-small {
   margin-left: 6px;
-  padding: 1px 8px;
+  padding: 2px 9px 2px 6px;
   font-size: 0.74rem;
-  vertical-align: 1px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.fact-with-icon .badge-small {
+  margin-left: 2px;
 }
 
 .tabs {

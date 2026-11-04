@@ -34,6 +34,7 @@ import { SearchBox, matches } from "./SearchBox";
 import { Select } from "./Select";
 import { Stamp, Tag } from "./Tag";
 import { ToolPhoto } from "./ToolPhoto";
+import { TrustedBadge } from "./TrustedBadge";
 
 type Sort = "newest" | "name" | "available";
 
@@ -249,13 +250,9 @@ export function BrowseTools() {
                     <dt>
                       <UserRound size={16} aria-hidden /> Lender
                     </dt>
-                    <dd>
+                    <dd className="fact-with-icon">
                       {tool.isMine ? "You" : tool.ownerFirstName}
-                      {tool.ownerTrusted && (
-                        <span className="badge badge-trusted badge-small">
-                          Trusted
-                        </span>
-                      )}
+                      {tool.ownerTrusted && <TrustedBadge />}
                     </dd>
                   </div>
                   {tool.bookings.length > 0 && (
