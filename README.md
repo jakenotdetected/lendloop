@@ -4,6 +4,8 @@ A neighbourhood tool library. Neighbours list tools they are happy to lend, requ
 
 **Stack:** Next.js 16 (App Router) · Convex · Clerk · n8n
 
+**Live demo:** https://lendloop-three.vercel.app (Vercel + Convex cloud, Clerk development instance). The hosted demo has no n8n instance attached, so notifications are recorded in Convex as not delivered; run the workflows locally to see them fire.
+
 ## What it does
 
 | Area | Behaviour |
