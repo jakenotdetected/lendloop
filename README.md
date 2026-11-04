@@ -143,6 +143,12 @@ Open http://localhost:3000 and sign in. To make yourself an admin after your fir
 npx convex run admin:setRole '{"email":"you@example.com","role":"admin"}'
 ```
 
+To fill the board with example neighbours and tools (safe to run more than once):
+
+```bash
+npx convex run demo:seed
+```
+
 ## n8n workflows (`n8n/workflows/`)
 
 | Workflow | Trigger | Steps |
